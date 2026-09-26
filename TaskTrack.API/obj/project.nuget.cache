@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "a9FqT3oelkE=",
+  "success": true,
+  "projectFilePath": "D:\\FPTDocuments\\Semester_8\\PRN232\\Asm\\QE190072_SE19B.NET_Ass1_BE\\TaskTrack.API\\TaskTrack.API.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\ACER\\.nuget\\packages\\microsoft.aspnetcore.openapi\\9.0.16\\microsoft.aspnetcore.openapi.9.0.16.nupkg.sha512",
+    "C:\\Users\\ACER\\.nuget\\packages\\microsoft.openapi\\1.6.17\\microsoft.openapi.1.6.17.nupkg.sha512"
+  ],
+  "logs": []
+}
