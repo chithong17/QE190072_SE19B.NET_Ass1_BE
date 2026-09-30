@@ -48,8 +48,11 @@ namespace TaskTrack.Service.Implementations
         {
             var query = _context.Projects.Include(p => p.Department).Where(p => p.IsActive == true).AsQueryable();
 
-            if (!string.IsNullOrEmpty(name))
-                query = query.Where(p => p.ProjectName.Contains(name));
+            if (!string.IsNullOrWhiteSpace(name))
+            {
+                var term = name.Trim();
+                query = query.Where(p => EF.Functions.ILike(p.ProjectName, $"%{term}%"));
+            }
             if (status.HasValue)
                 query = query.Where(p => p.Status == status.Value);
             if (departmentId.HasValue)
@@ -61,7 +64,7 @@ namespace TaskTrack.Service.Implementations
         public async Task<Project> CreateProjectAsync(Project project)
         {
             project.IsActive = true;
-            project.CreatedDate = DateTime.UtcNow;
+            project.CreatedDate = DateTime.Now;
             await _projectRepo.AddAsync(project);
             await _projectRepo.SaveChangesAsync();
             return project;
@@ -88,11 +91,11 @@ namespace TaskTrack.Service.Implementations
         public async Task<bool> DeleteProjectAsync(int id)
         {
             var proj = await _context.Projects.Include(p => p.Tasks).FirstOrDefaultAsync(p => p.ProjectId == id);
-            if (proj == null) throw new Exception("Project not found");
+            if (proj == null) return false;
 
             if (proj.Tasks != null && proj.Tasks.Any())
             {
-                throw new Exception("Cannot delete project because it has linked tasks.");
+                throw new InvalidOperationException("Cannot delete project because it has linked tasks.");
             }
 
             _projectRepo.Delete(proj);

@@ -28,14 +28,17 @@ namespace TaskTrack.Service.Implementations
         public async Task<Department?> GetDepartmentByIdAsync(int id)
         {
             return await _context.Departments
-                .Include(d => d.Projects)
+                .Include(d => d.Projects.Where(p => p.IsActive == true))
+                    .ThenInclude(p => p.Tasks.Where(t => t.IsActive == true))
+                        .ThenInclude(t => t.Tags)
                 .FirstOrDefaultAsync(d => d.DepartmentId == id);
         }
 
         public async Task<IEnumerable<Department>> SearchDepartmentsByNameAsync(string name)
         {
+            var term = name?.Trim();
             return await _context.Departments
-                .Where(d => d.IsActive == true && (string.IsNullOrEmpty(name) || d.DepartmentName.Contains(name)))
+                .Where(d => d.IsActive == true && (string.IsNullOrEmpty(term) || EF.Functions.ILike(d.DepartmentName, $"%{term}%")))
                 .ToListAsync();
         }
 
@@ -64,11 +67,11 @@ namespace TaskTrack.Service.Implementations
         public async Task<bool> DeleteDepartmentAsync(int id)
         {
             var dept = await _context.Departments.Include(d => d.Projects).FirstOrDefaultAsync(d => d.DepartmentId == id);
-            if (dept == null) throw new Exception("Department not found");
+            if (dept == null) return false;
 
             if (dept.Projects != null && dept.Projects.Any())
             {
-                throw new Exception("Cannot delete department because it has linked projects.");
+                throw new InvalidOperationException("Cannot delete department because it has linked projects.");
             }
 
             _departmentRepo.Delete(dept);

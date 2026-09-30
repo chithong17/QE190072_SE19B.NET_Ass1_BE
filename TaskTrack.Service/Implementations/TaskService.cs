@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using TaskTrack.Repo.Models;
 using TaskTrack.Repo.Repositories;
+using TaskTrack.Service.DTOs;
 using TaskTrack.Service.Interfaces;
 
 namespace TaskTrack.Service.Implementations
@@ -20,39 +21,46 @@ namespace TaskTrack.Service.Implementations
             _context = context;
         }
 
-        public async Task<IEnumerable<TaskTrack.Repo.Models.Task>> GetAllActiveTasksAsync()
+        public async Task<IEnumerable<TaskDto>> GetAllActiveTasksAsync()
         {
             return await _context.Tasks
-                .Include(t => t.Project)
+                .AsNoTracking()
                 .Where(t => t.IsActive == true)
+                .Select(TaskMappings.ToDto)
                 .ToListAsync();
         }
 
-        public async Task<TaskTrack.Repo.Models.Task?> GetTaskByIdAsync(int id)
+        public async Task<TaskDto?> GetTaskByIdAsync(int id)
         {
             return await _context.Tasks
-                .Include(t => t.Project)
-                .Include(t => t.Tags)
-                .FirstOrDefaultAsync(t => t.TaskId == id);
+                .AsNoTracking()
+                .Where(t => t.TaskId == id)
+                .Select(TaskMappings.ToDto)
+                .FirstOrDefaultAsync();
         }
 
-        public async Task<IEnumerable<TaskTrack.Repo.Models.Task>> GetTasksByProjectAsync(int projectId)
+        public async Task<IEnumerable<TaskDto>> GetTasksByProjectAsync(int projectId)
         {
             return await _context.Tasks
+                .AsNoTracking()
                 .Where(t => t.ProjectId == projectId && t.IsActive == true)
+                .Select(TaskMappings.ToDto)
                 .ToListAsync();
         }
 
-        public async Task<IEnumerable<TaskTrack.Repo.Models.Task>> SearchTasksAsync(string? title, int? status, int? priority, int? projectId, int? tagId)
+        public async Task<IEnumerable<TaskDto>> SearchTasksAsync(string? title, int? status, int? priority, int? projectId, int? tagId)
         {
             var query = _context.Tasks
-                .Include(t => t.Project)
-                .Include(t => t.Tags)
+                .AsNoTracking()
                 .Where(t => t.IsActive == true)
                 .AsQueryable();
 
-            if (!string.IsNullOrEmpty(title))
-                query = query.Where(t => t.Title.Contains(title));
+            if (!string.IsNullOrWhiteSpace(title))
+            {
+                var term = title.Trim();
+                query = query.Where(t => EF.Functions.ILike(t.Title, $"%{term}%") || 
+                                        (t.Description != null && EF.Functions.ILike(t.Description, $"%{term}%")));
+            }
             if (status.HasValue)
                 query = query.Where(t => t.Status == status.Value);
             if (priority.HasValue)
@@ -62,14 +70,16 @@ namespace TaskTrack.Service.Implementations
             if (tagId.HasValue)
                 query = query.Where(t => t.Tags.Any(tag => tag.TagId == tagId.Value));
 
-            return await query.ToListAsync();
+            return await query
+                .Select(TaskMappings.ToDto)
+                .ToListAsync();
         }
 
         public async Task<TaskTrack.Repo.Models.Task> CreateTaskAsync(TaskTrack.Repo.Models.Task task, int[]? tagIds)
         {
             task.IsActive = true;
-            task.CreatedDate = DateTime.UtcNow;
-            task.ModifiedDate = DateTime.UtcNow;
+            task.CreatedDate = DateTime.Now;
+            task.ModifiedDate = DateTime.Now;
 
             if (tagIds != null && tagIds.Any())
             {
@@ -95,7 +105,7 @@ namespace TaskTrack.Service.Implementations
             task.DueDate = updatedData.DueDate;
             task.ProjectId = updatedData.ProjectId;
             task.IsActive = updatedData.IsActive;
-            task.ModifiedDate = DateTime.UtcNow;
+            task.ModifiedDate = DateTime.Now;
 
             if (tagIds != null)
             {
@@ -118,7 +128,7 @@ namespace TaskTrack.Service.Implementations
             if (task == null) return false;
 
             task.IsActive = false;
-            task.ModifiedDate = DateTime.UtcNow;
+            task.ModifiedDate = DateTime.Now;
             _taskRepo.Update(task);
             await _taskRepo.SaveChangesAsync();
             return true;

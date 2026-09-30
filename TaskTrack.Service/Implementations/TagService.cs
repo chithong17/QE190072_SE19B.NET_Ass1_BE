@@ -53,11 +53,11 @@ namespace TaskTrack.Service.Implementations
         public async Task<bool> DeleteTagAsync(int id)
         {
             var tag = await _context.Tags.Include(t => t.Tasks).FirstOrDefaultAsync(t => t.TagId == id);
-            if (tag == null) throw new Exception("Tag not found");
+            if (tag == null) return false;
 
             if (tag.Tasks != null && tag.Tasks.Any())
             {
-                throw new Exception("Cannot delete tag because it is used by one or more tasks.");
+                throw new InvalidOperationException("Cannot delete tag because it is used by one or more tasks.");
             }
 
             _tagRepo.Delete(tag);
