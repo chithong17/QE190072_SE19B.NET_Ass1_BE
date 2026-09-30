@@ -24,6 +24,13 @@ namespace TaskTrack.API.Controllers
             return Ok(data);
         }
 
+        [HttpGet("manage")]
+        public async Task<IActionResult> GetAllForManagement()
+        {
+            var data = await _departmentService.GetAllDepartmentsForManagementAsync();
+            return Ok(data);
+        }
+
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {

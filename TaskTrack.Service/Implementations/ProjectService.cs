@@ -28,6 +28,14 @@ namespace TaskTrack.Service.Implementations
                 .ToListAsync();
         }
 
+        public async Task<IEnumerable<Project>> GetAllProjectsForManagementAsync()
+        {
+            return await _context.Projects
+                .Include(p => p.Department)
+                .OrderBy(p => p.ProjectId)
+                .ToListAsync();
+        }
+
         public async Task<Project?> GetProjectByIdAsync(int id)
         {
             return await _context.Projects

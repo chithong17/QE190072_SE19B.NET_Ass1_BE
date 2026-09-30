@@ -25,6 +25,13 @@ namespace TaskTrack.Service.Implementations
             return await _context.Departments.Where(d => d.IsActive == true).ToListAsync();
         }
 
+        public async Task<IEnumerable<Department>> GetAllDepartmentsForManagementAsync()
+        {
+            return await _context.Departments
+                .OrderBy(d => d.DepartmentId)
+                .ToListAsync();
+        }
+
         public async Task<Department?> GetDepartmentByIdAsync(int id)
         {
             return await _context.Departments
