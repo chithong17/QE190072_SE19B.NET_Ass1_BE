@@ -89,9 +89,76 @@ Tạo file `.env` hoặc cấu hình qua **User Secrets** / Environment Variable
 
 - **Nền tảng đề xuất:** [Render](https://render.com) hoặc [Railway](https://railway.app).
 - **Cấu hình Render Web Service:**
-  - **Build Command:** `dotnet publish -c Release -o out TaskTrack.API/TaskTrack.API.csproj`
+  - **Docker (Khuyến nghị):** Render tự động nhận diện `Dockerfile` có sẵn trong root.
+  - **Hoặc Native Build Command:** `dotnet publish -c Release -o out TaskTrack.API/TaskTrack.API.csproj`
   - **Start Command:** `dotnet out/TaskTrack.API.dll`
   - **Environment Variables:**
-    - `DATABASE_URL`: URL PostgreSQL trên Render.
+    - `DATABASE_URL`: Chuỗi kết nối PostgreSQL trên Render.
     - `ASPNETCORE_ENVIRONMENT`: `Production`
     - `FRONTEND_URL`: URL Frontend trên Vercel.
+
+---
+
+## 📊 Sơ đồ cơ sở dữ liệu (ERD - Entity Relationship Diagram)
+
+```mermaid
+erDiagram
+    DEPARTMENT ||--o{ PROJECT : "has many"
+    PROJECT ||--o{ TASK : "contains"
+    TASK ||--o{ TASK_TAG : "has"
+    TAG ||--o{ TASK_TAG : "categorizes"
+
+    DEPARTMENT {
+        int DepartmentID PK
+        string DepartmentName
+        string DepartmentDescription
+        boolean IsActive
+    }
+
+    PROJECT {
+        int ProjectID PK
+        string ProjectName
+        string Description
+        date StartDate
+        date EndDate
+        int Status "0: Not Started, 1: In Progress, 2: Completed, 3: On Hold"
+        int DepartmentID FK
+        boolean IsActive
+        datetime CreatedDate
+    }
+
+    TASK {
+        int TaskID PK
+        string Title
+        string Description
+        int Status "0: To Do, 1: In Progress, 2: Done, 3: Cancelled"
+        int Priority "0: Low, 1: Medium, 2: High, 3: Critical"
+        date DueDate
+        int ProjectID FK
+        boolean IsActive
+        datetime CreatedDate
+        datetime ModifiedDate
+    }
+
+    TAG {
+        int TagID PK
+        string TagName
+        string Color
+    }
+
+    TASK_TAG {
+        int TaskID PK, FK
+        int TagID PK, FK
+    }
+```
+
+---
+
+## 🌟 Tính năng cộng điểm (Bonus Features)
+
+- [x] **GitHub Actions CI/CD**: Tự động kiểm tra build trên mỗi commit và pull request (`.github/workflows/ci.yml`).
+- [x] **ERD Diagram**: Tài liệu sơ đồ thực thể liên kết chuẩn xác trong `README.md`.
+- [x] **Task Status & Priority Badges**: Trực quan hóa tiến độ bằng màu sắc chuyên nghiệp.
+- [x] **Soft Delete**: Xóa mềm bảo toàn dữ liệu cho Task.
+- [x] **Foreign Key Delete Prevention**: Chặn xóa khi có dữ liệu phụ thuộc với thông báo lỗi rõ ràng.
+
