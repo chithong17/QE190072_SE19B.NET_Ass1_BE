@@ -31,7 +31,7 @@ namespace TaskTrack.API.Controllers
             return Ok(data);
         }
 
-        [HttpGet("{id}")]
+        [HttpGet("{id:int}")]
         public async Task<IActionResult> GetById(int id)
         {
             var data = await _departmentService.GetDepartmentByIdAsync(id);
