@@ -59,7 +59,7 @@ namespace TaskTrack.API.Controllers
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
             var updated = await _projectService.UpdateProjectAsync(id, project);
-            if (updated == null) return NotFound();
+            if (updated == null) return NotFound(new { message = "Project not found." });
             return Ok(updated);
         }
 
@@ -68,7 +68,8 @@ namespace TaskTrack.API.Controllers
         {
             try
             {
-                await _projectService.DeleteProjectAsync(id);
+                var result = await _projectService.DeleteProjectAsync(id);
+                if (!result) return NotFound(new { message = "Project not found." });
                 return NoContent();
             }
             catch (Exception ex)

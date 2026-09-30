@@ -7,7 +7,11 @@ using TaskTrack.Repo.Repositories;
 using TaskTrack.Service.Interfaces;
 using TaskTrack.Service.Implementations;
 using Microsoft.Extensions.Configuration;
+using Npgsql;
 using System.Text.Json.Serialization;
+
+// Enable legacy timestamp behavior so UTC DateTimes can be mapped to PostgreSQL timestamp without time zone
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,35 +22,42 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
     });
 
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // Configure CORS
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowVercel", builder =>
+    options.AddPolicy("AllowVercel", policy =>
     {
-        builder.WithOrigins("https://*.vercel.app")
-               .SetIsOriginAllowedToAllowWildcardSubdomains()
-               .AllowAnyHeader()
-               .AllowAnyMethod();
-        
-        // Temporarily allow localhost for local dev
-        builder.WithOrigins("http://localhost:3000")
-               .AllowAnyHeader()
-               .AllowAnyMethod();
-               
-        // Also allow all for testing
-        builder.AllowAnyOrigin()
+        var configuredFrontend = builder.Configuration["FRONTEND_URL"];
+        policy.SetIsOriginAllowed(origin =>
+               Uri.TryCreate(origin, UriKind.Absolute, out var uri) &&
+               (uri.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
+                uri.Host.EndsWith(".vercel.app", StringComparison.OrdinalIgnoreCase) ||
+                (!string.IsNullOrWhiteSpace(configuredFrontend) && origin.Equals(configuredFrontend, StringComparison.OrdinalIgnoreCase))))
                .AllowAnyHeader()
                .AllowAnyMethod();
     });
 });
 
-// Configure DbContext
+// Configure DbContext from Render's DATABASE_URL or the standard .NET
+// ConnectionStrings:DefaultConnection setting (User Secrets in development).
+var configuredConnection = builder.Configuration["DATABASE_URL"];
+if (string.IsNullOrWhiteSpace(configuredConnection))
+{
+    configuredConnection = builder.Configuration.GetConnectionString("DefaultConnection");
+}
+
+if (string.IsNullOrWhiteSpace(configuredConnection))
+{
+    throw new InvalidOperationException(
+        "Database connection is not configured. Set DATABASE_URL or ConnectionStrings__DefaultConnection.");
+}
+
+var databaseConnection = NormalizeDatabaseConnection(configuredConnection);
 builder.Services.AddDbContext<TaskmanagementDbEgrzContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(databaseConnection));
 
 // Dependency Injection
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
@@ -57,9 +68,7 @@ builder.Services.AddScoped<ITagService, TagService>();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-// In production, we also want swagger to be accessible for the assignment requirement
-// if (app.Environment.IsDevelopment() || builder.Configuration["ASPNETCORE_ENVIRONMENT"] == "Production")
+// Keep Swagger available locally and after deployment for assignment review.
 app.UseSwagger();
 app.UseSwaggerUI();
 
@@ -69,6 +78,34 @@ app.UseCors("AllowVercel");
 
 app.UseAuthorization();
 
+app.MapGet("/", () => Results.Redirect("/swagger"));
 app.MapControllers();
 
 app.Run();
+
+static string NormalizeDatabaseConnection(string connection)
+{
+    if (!Uri.TryCreate(connection, UriKind.Absolute, out var uri) ||
+        (uri.Scheme != "postgres" && uri.Scheme != "postgresql"))
+    {
+        return connection;
+    }
+
+    var credentials = uri.UserInfo.Split(':', 2);
+    if (credentials.Length != 2)
+    {
+        throw new InvalidOperationException("DATABASE_URL does not contain valid credentials.");
+    }
+
+    var connectionBuilder = new NpgsqlConnectionStringBuilder
+    {
+        Host = uri.Host,
+        Port = uri.IsDefaultPort ? 5432 : uri.Port,
+        Database = Uri.UnescapeDataString(uri.AbsolutePath.TrimStart('/')),
+        Username = Uri.UnescapeDataString(credentials[0]),
+        Password = Uri.UnescapeDataString(credentials[1]),
+        SslMode = SslMode.Require
+    };
+
+    return connectionBuilder.ConnectionString;
+}

@@ -48,6 +48,7 @@ namespace TaskTrack.API.Controllers
 
         public class CreateTaskDto
         {
+            [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Task data is required.")]
             public TaskTrack.Repo.Models.Task Task { get; set; } = null!;
             public int[]? TagIds { get; set; }
         }
@@ -55,25 +56,29 @@ namespace TaskTrack.API.Controllers
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreateTaskDto dto)
         {
+            if (dto?.Task == null) return BadRequest(new { message = "Task data is required." });
             if (!ModelState.IsValid) return BadRequest(ModelState);
             var created = await _taskService.CreateTaskAsync(dto.Task, dto.TagIds);
-            return CreatedAtAction(nameof(GetById), new { id = created.TaskId }, created);
+            var result = await _taskService.GetTaskByIdAsync(created.TaskId);
+            return CreatedAtAction(nameof(GetById), new { id = created.TaskId }, result ?? (object)created);
         }
 
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] CreateTaskDto dto)
         {
+            if (dto?.Task == null) return BadRequest(new { message = "Task data is required." });
             if (!ModelState.IsValid) return BadRequest(ModelState);
             var updated = await _taskService.UpdateTaskAsync(id, dto.Task, dto.TagIds);
-            if (updated == null) return NotFound();
-            return Ok(updated);
+            if (updated == null) return NotFound(new { message = "Task not found." });
+            var result = await _taskService.GetTaskByIdAsync(updated.TaskId);
+            return Ok(result ?? (object)updated);
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
             var result = await _taskService.SoftDeleteTaskAsync(id);
-            if (!result) return NotFound();
+            if (!result) return NotFound(new { message = "Task not found." });
             return NoContent();
         }
     }

@@ -52,7 +52,7 @@ namespace TaskTrack.API.Controllers
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
             var updated = await _departmentService.UpdateDepartmentAsync(id, department);
-            if (updated == null) return NotFound();
+            if (updated == null) return NotFound(new { message = "Department not found." });
             return Ok(updated);
         }
 
@@ -61,7 +61,8 @@ namespace TaskTrack.API.Controllers
         {
             try
             {
-                await _departmentService.DeleteDepartmentAsync(id);
+                var result = await _departmentService.DeleteDepartmentAsync(id);
+                if (!result) return NotFound(new { message = "Department not found." });
                 return NoContent();
             }
             catch (Exception ex)
